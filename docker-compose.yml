@@ -1,6 +1,38 @@
 # TODO: Define 3 services: db, api, frontend
 #
 # Requirements:
-# - db: postgres:17-alpine, env_file .env, healthcheck
+# - db: postgres:17.5-alpine, env_file .env, healthcheck
 # - api: build from ./Dockerfile, port 8080, depends_on db, env_file .env
 # - frontend: build from ./frontend/Dockerfile, port 8501, depends_on api, env API_URL=http://api:8080
+
+version: '3.8'
+services:
+  db:
+    image: postgres:17.5-alpine
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    volumes:
+      - ./frontend:/app
+    environment:
+      API_URL: ${API_URL}
+    command: streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.fileWatcherType polling --server.runOnSave true
